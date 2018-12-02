@@ -25,69 +25,62 @@
 /// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 /// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 /// THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+#define OPENCV_TRAITS_ENABLE_DEPRECATED
 #include <ros/ros.h>
 
 #include <boost/format.hpp>
 
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/CompressedImage.h>
+#include <sensor_msgs/Image.h>
 
-#include <image_proc/processor.h>
 #include <camera_calibration_parsers/parse.h>
+#include <image_proc/processor.h>
 
-#include <opencv2/highgui/highgui.hpp> // for cv::imwrite
+#include <opencv2/highgui/highgui.hpp>  // for cv::imwrite
 
-#include "bag_tools/image_bag_processor.h"
 #include <iostream>
+#include "bag_tools/image_bag_processor.h"
 /**
  * Saves color images from raw input
  */
-class ImageSaver
-{
-public:
+class ImageSaver {
+ public:
   ImageSaver(const std::string& save_dir, const std::string& filetype,
-      const std::string& prefix) :
-    save_dir_(save_dir), filetype_(filetype), prefix_(prefix), num_saved_(0)
-  {}
+             const std::string& prefix)
+      : save_dir_(save_dir),
+        filetype_(filetype),
+        prefix_(prefix),
+        num_saved_(0) {}
 
-  void save(const sensor_msgs::ImageConstPtr &img)
-  {
+  void save(const sensor_msgs::ImageConstPtr& img) {
     image_proc::ImageSet output;
-    image_geometry::PinholeCameraModel camera_model; // empty, we don't need it here
-    if (!processor_.process(img, camera_model, output, image_proc::Processor::COLOR))
-    {
+    image_geometry::PinholeCameraModel
+        camera_model;  // empty, we don't need it here
+    if (!processor_.process(img, camera_model, output,
+                            image_proc::Processor::COLOR)) {
       std::cerr << "ERROR Processing image" << std::endl;
       return;
     }
     save_image(img->header.stamp.toNSec(), output.color);
   }
-  void save_compressed(const sensor_msgs::CompressedImageConstPtr& _compressed)
-  {
-    cv::Mat image_uncomrpessed = cv::imdecode(cv::Mat(_compressed->data),1);
+  void save_compressed(
+      const sensor_msgs::CompressedImageConstPtr& _compressed) {
+    cv::Mat image_uncomrpessed = cv::imdecode(cv::Mat(_compressed->data), 1);
     save_image(_compressed->header.stamp.toNSec(), image_uncomrpessed);
   }
 
-private:
-  void save_image(uint64_t _time_stamp, const cv::Mat& _image)
-  {
-      std::string filename =
-        boost::str(boost::format("%s/%s%06lu_%lu.%s")
-            % save_dir_
-            % prefix_
-            % num_saved_
-            % _time_stamp
-            % filetype_);
-      if (!cv::imwrite(filename, _image))
-      {
-        ROS_ERROR_STREAM("ERROR Saving " << filename);
-      }
-      else
-      {
-        ROS_DEBUG_STREAM("Saved " << filename);
-        num_saved_++;
-      }
+ private:
+  void save_image(uint64_t _time_stamp, const cv::Mat& _image) {
+    std::string filename =
+        boost::str(boost::format("%s/%s%06lu_%lu.%s") % save_dir_ % prefix_ %
+                   num_saved_ % _time_stamp % filetype_);
+    if (!cv::imwrite(filename, _image)) {
+      ROS_ERROR_STREAM("ERROR Saving " << filename);
+    } else {
+      ROS_DEBUG_STREAM("Saved " << filename);
+      num_saved_++;
+    }
   }
 
   image_proc::Processor processor_;
@@ -97,12 +90,14 @@ private:
   int num_saved_;
 };
 
-int main(int argc, char** argv)
-{
-  if (argc < 4)
-  {
-    std::cout << "Usage: " << argv[0] << " OUT_DIR FILETYPE IMAGE_TOPIC BAGFILE [BAGFILE...]" << std::endl;
-    std::cout << "  Example: " << argv[0] << " /tmp jpg /stereo_down/left/image_raw bag1.bag bag2.bag" << std::endl;
+int main(int argc, char** argv) {
+  if (argc < 4) {
+    std::cout << "Usage: " << argv[0]
+              << " OUT_DIR FILETYPE IMAGE_TOPIC BAGFILE [BAGFILE...]"
+              << std::endl;
+    std::cout << "  Example: " << argv[0]
+              << " /tmp jpg /stereo_down/left/image_raw bag1.bag bag2.bag"
+              << std::endl;
     return 0;
   }
 
@@ -117,11 +112,10 @@ int main(int argc, char** argv)
   ImageSaver saver(out_dir, filetype, prefix);
   bag_tools::ImageBagProcessor processor(image_topic);
   processor.registerCallback(boost::bind(&ImageSaver::save, saver, _1));
-  processor.registerCompressedCallback(boost::bind(&ImageSaver::save_compressed, saver, _1));
+  processor.registerCompressedCallback(
+      boost::bind(&ImageSaver::save_compressed, saver, _1));
 
-  for (int i = 4; i < argc; ++i)
-    processor.processBag(argv[i]);
+  for (int i = 4; i < argc; ++i) processor.processBag(argv[i]);
 
   return 0;
 }
-
